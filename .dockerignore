@@ -1,0 +1,13 @@
+myvenv
+venv
+.venv
+.git
+.env
+*.pem
+*.tar
+data
+dataset.csv
+__pycache__
+*.pyc
+.pytest_cache
+.DS_Store

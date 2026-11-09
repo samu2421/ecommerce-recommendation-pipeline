@@ -1,0 +1,82 @@
+services:
+  postgres:
+    image: postgres:14
+    container_name: postgres_db
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-samiksha}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password123}
+      POSTGRES_DB: ${POSTGRES_DB:-ecommerce_data}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"  # host port; change if 5432 is already in use
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init_postgres.sql:/docker-entrypoint-initdb.d/init_postgres.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-samiksha} -d ${POSTGRES_DB:-ecommerce_data}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - my_network
+
+  mongodb:
+    image: mongo:6.0
+    container_name: mongodb
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - my_network
+
+  # One-off job: loads the dataset into PostgreSQL and MongoDB, then exits
+  ingestion:
+    build: .
+    container_name: data_ingestion
+    command: ["python", "data_ingestion.py"]
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_started
+    environment:
+      DATABASE_URL: "postgresql+psycopg2://${POSTGRES_USER:-samiksha}:${POSTGRES_PASSWORD:-password123}@postgres:5432/${POSTGRES_DB:-ecommerce_data}"
+      MONGO_URI: "mongodb://mongodb:27017"
+      DATASET_PATH: ${DATASET_PATH:-data/online_retail.csv}
+      INGEST_MODE: ${INGEST_MODE:-}
+    volumes:
+      - ./data:/app/data:ro
+    networks:
+      - my_network
+
+  # Flask recommendation API
+  api:
+    build: .
+    container_name: flask_app
+    command: ["python", "newapp.py"]
+    restart: on-failure
+    ports:
+      - "5001:5001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgresql+psycopg2://${POSTGRES_USER:-samiksha}:${POSTGRES_PASSWORD:-password123}@postgres:5432/${POSTGRES_DB:-ecommerce_data}"
+      MONGO_URI: "mongodb://mongodb:27017"
+      FLASK_HOST: "0.0.0.0"
+      FLASK_PORT: "5001"
+      FLASK_DEBUG: ${FLASK_DEBUG:-0}
+    volumes:
+      - ./data:/app/data:ro
+    networks:
+      - my_network
+
+volumes:
+  postgres_data:
+  mongo_data:
+
+networks:
+  my_network:

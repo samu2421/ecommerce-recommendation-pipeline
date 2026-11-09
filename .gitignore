@@ -1,0 +1,23 @@
+# Virtual environments
+myvenv/
+venv/
+.venv/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# macOS
+.DS_Store
+
+# Secrets and archives
+.env
+!.env.example
+*.pem
+*.tar
+
+# Data (download separately; see README)
+data/*.csv
+data/*.xlsx
+dataset.csv
